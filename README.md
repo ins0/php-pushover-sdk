@@ -3,22 +3,18 @@ php-pushover-sdk
 
 php implementation to send messages over pushover.net api
 
+ToDo
+================
+- [ ] make extended examples
+- [ ] make tests
+- [x] wait for feedback
 
-examples
+Examples
 ================
 
 
     $auth = new \Pushover\Api\Authentication\Token('YOUR_PUSHOVER_API_TOKEN');
     $pushover = new \Pushover\Api($auth);
-
-    // receipt
-    $success = $pushover->getReceiptStatus('RECEIPT_TOKEN');
-    if( $success )
-    {
-        /** @var $response \Pushover\Api\Response\ReceiptResponse */
-        $response = $pushover->getResponse();
-        echo $response->getAcknowledged();
-    }
 
     // test emergency push message
     $message = new \Pushover\Api\Message\EmergencyMessage('FoBar Test Message', 'USER_TOKEN','DEVICE_NAME');
@@ -30,7 +26,14 @@ examples
     {
         /** @var $response \Pushover\Api\Response\Response */
         $response = $pushover->getResponse();
-        echo $response->getReceipt();
+        
+        // get receipt status
+        if( $pushover->getReceiptStatus( $response->getReceipt() ))
+        {
+            /** @var $response \Pushover\Api\Response\ReceiptResponse */
+            $response = $pushover->getResponse();
+            echo $response->getAcknowledged();
+        }
     }
 
     // bulk push
