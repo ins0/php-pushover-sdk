@@ -7,6 +7,7 @@ ToDo
 ================
 - [ ] make extended examples
 - [ ] make tests
+- [ ] make nice wiki/documentation
 - [x] wait for feedback
 
 Examples
