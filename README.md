@@ -5,6 +5,7 @@ php implementation to send messages over pushover.net api
 
 ToDo
 ================
+- [ ] helper classes for inapp link support (Pushover/Api/Message/Link)
 - [ ] make extended examples
 - [ ] make tests
 - [ ] make nice wiki/documentation
