@@ -3,19 +3,27 @@ php-pushover-sdk
 
 php implementation to send messages over pushover.net api
 
-todo
-================
-
+## ToDo
 - [ ] make nice wiki/documentation
 - [ ] add all unit tests
 - [ ] add device specific link helper (Pushover/Api/Message/Link)
 - [x] add api friendly bulk requests
 - [x] get some feedback
 
-examples
-================
+
+## Quick start
+
+### Install via Composer
+In the `require` key of `composer.json` file add the following
+
+    "ins0/php-pushover-sdk": "dev-master"
+
+Run the Composer update command
+
+    $ composer update
 
 
+### Examples
     $auth = new \Pushover\Api\Authentication\Token('YOUR_PUSHOVER_API_TOKEN');
     $pushover = new \Pushover\Api($auth);
 
