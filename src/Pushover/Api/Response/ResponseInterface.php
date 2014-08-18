@@ -3,6 +3,7 @@ namespace Pushover\Api\Response;
 
 interface ResponseInterface
 {
-    public function getStatus();
-    public function getRequest();
+    public function exchangeArray($array);
+    public function getStatusCode();
+    public function setStatusCode($statusCode);
 }

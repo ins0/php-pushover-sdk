@@ -11,26 +11,25 @@ examples
     $auth = new \Pushover\Api\Authentication\Token('YOUR_PUSHOVER_API_TOKEN');
     $pushover = new \Pushover\Api($auth);
 
-    // receipt
-    $success = $pushover->getReceiptStatus('RECEIPT_TOKEN');
-    if( $success )
-    {
-        /** @var $response \Pushover\Api\Response\ReceiptResponse */
-        $response = $pushover->getResponse();
-        echo $response->getAcknowledged();
-    }
-
     // test emergency push message
     $message = new \Pushover\Api\Message\EmergencyMessage('FoBar Test Message', 'USER_TOKEN','DEVICE_NAME');
     $message->setTimestamp(time()-3600); // 1 hour before
     $message->setSound($message::SOUND_CASHREGISTER);
 
-    $success = $pushover->push($message);
-    if($success === true)
+    $result = $pushover->push($message);
+    if($result !== false)
     {
         /** @var $response \Pushover\Api\Response\Response */
         $response = $pushover->getResponse();
-        echo $response->getReceipt();
+
+        // get emergency receipt status
+        $success = $pushover->getReceiptStatus($response->getReceipt());
+        if( $success !== false )
+        {
+            /** @var $response \Pushover\Api\Response\ReceiptResponse */
+            $receiptResponse = $pushover->getResponse();
+            echo $receiptResponse->getAcknowledged();
+        }
     }
 
     // bulk push
@@ -38,9 +37,14 @@ examples
     $messages[] = new \Pushover\Api\Message\NormalMessage('bar', 'USER_TOKEN'); // push message on all user devices
     $messages[] = new \Pushover\Api\Message\NormalMessage('baz', 'USER_TOKEN','DEVICE_NAME'); // push message on special user device
 
-    $repsonse = $pushover->bulkPush($messages);
-    if( $repsonse !== true )
+    $results = $pushover->bulkPush($messages);
+    if( $result === false )
     {
-        // show failed push
-        print_r($response);
+        // show failed push messages
+        print_r($pushover->getErrors());
+
+    } else {
+
+        // show response
+        print_R($pushover->getResponseSet());
     }

@@ -5,11 +5,9 @@ use Pushover\Api\Authentication\AuthenticationInterface;
 
 interface ClientInterface
 {
+    public function onClientConnect();
     public function sendRequest($method, $data = array(), $endpoint, AuthenticationInterface $authentication);
-
-    public function preMultiRequest();
-    public function onMultiRequest($method, $data = array(), $endpoint, AuthenticationInterface $authentication);
-    public function postMultiRequest();
+    public function onClientClose();
 
     public function getResponseStatusCode();
     public function setResponseStatusCode($statusCode);

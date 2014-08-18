@@ -13,6 +13,45 @@ class ReceiptResponse implements ResponseInterface
     protected $called_back;
     protected $called_back_at;
     protected $request;
+    protected $statusCode;
+
+    /**
+     * Exchange API response to Object
+     *
+     * @param $array
+     * @return $this
+     */
+    public function exchangeArray($array)
+    {
+        $self = $this;
+        $vars = get_class_vars(get_class($this));
+
+        array_map(function($v, $k) use ($vars, $self) {
+            $k = str_replace('_', '', $k);
+            if( method_exists($self, 'set' . ucwords(strtolower($k)) ) )
+            {
+                call_user_func(array($self, 'set' . ucwords(strtolower($k))), $v);
+            }
+        }, $array, array_keys($array));
+
+        return $this;
+    }
+
+    /**
+     * @param mixed $statusCode
+     */
+    public function setStatusCode($statusCode)
+    {
+        $this->statusCode = $statusCode;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getStatusCode()
+    {
+        return $this->statusCode;
+    }
 
     /**
      * @param mixed $acknowledged

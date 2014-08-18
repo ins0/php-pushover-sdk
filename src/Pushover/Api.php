@@ -25,8 +25,14 @@ class Api
     /** @var  ClientInterface */
     private $client;
 
-    /** @var  Response */
-    private $response;
+    /** @var array  */
+    private $responseSet = array();
+
+    /** @var array  */
+    private $responseErrors = array();
+
+    /** @var bool */
+    private $isError = false;
 
     /**
      * Constructor
@@ -53,11 +59,13 @@ class Api
      * Get Receipt Status
      *
      * @param $receiptToken
-     * @return bool
+     * @return bool|mixed
      */
     public function getReceiptStatus($receiptToken)
     {
-        return $this->callApi($this::REQUEST_GET, '/receipts/' . $receiptToken);
+        $this->callApi($this::REQUEST_GET, '/receipts/' . $receiptToken, null, new ReceiptResponse());
+
+        return $this->isError() ? false : $this->getResponse();
     }
 
     /**
@@ -72,14 +80,10 @@ class Api
             return false;
 
         // send data
-        $this->callMultiApi($this::REQUEST_POST, '/messages', $messages);
-
-
-        // flush response
-        $this->setResponse(null);
+        $this->callApi($this::REQUEST_POST, '/messages', $messages, new Response());
 
         // return results
-        return count($errors) <= 0 ? true : $errors;
+        return $this->isError() ? false : $this->getResponseSet();
     }
 
     /**
@@ -90,7 +94,8 @@ class Api
      */
     public function push(AbstractMessage $message)
     {
-        return $this->callApi($this::REQUEST_POST, '/messages', $message->getArrayCopy());
+        $this->callApi($this::REQUEST_POST, '/messages', $message->getArrayCopy(), new Response());
+        return $this->isError() ? false : $this->getResponse();
     }
 
     /**
@@ -99,90 +104,66 @@ class Api
      * @param string $method
      * @param $resource
      * @param array $data
+     * @param ResponseInterface $responseHydrator
      * @return bool
-     * @throws Api\Exception\InvalidResponseException
-     * @throws Api\Exception\RequestFailedException
      */
-    private function callApi($method = self::REQUEST_POST, $resource, $data = array())
+    private function callApi($method = self::REQUEST_POST, $resource, $data = array(), ResponseInterface $responseHydrator = null)
     {
+        if( !is_array($data) )
+            $data = array($data);
+
+        // flush old response and errors
+        $this->setResponseErrors(array());
+        $this->setResponseSet(array());
+
         // get client
         $client = $this->getClient();
+        $client->onClientConnect();
 
         // send request
-        $response = $client->sendRequest(
-            $method,
-            $data,
-            sprintf('%s/%s%s.json', self::API_ENDPOINT, self::API_VERSION, $resource),
-            $this->getAuthentication()
-        );
-
-        return $this->handleResponse($response);
-    }
-
-    /**
-     * Send Bulk Request
-     *
-     * @param string $method
-     * @param $resource
-     * @param array $data
-     * @return mixed
-     */
-    private function callMultiApi($method = self::REQUEST_POST, $resource, $data = array())
-    {
-        // get client
-        $client = $this->getClient();
-
-        $client->preMultiRequest();
-
-        // send request
-        foreach($data as $message)
+        foreach($data as $dataSend)
         {
-            if( $message instanceof AbstractMessage )
-            {
-                $client->onMultiRequest(
-                    $method,
-                    $message->getArrayCopy(),
-                    sprintf('%s/%s%s.json', self::API_ENDPOINT, self::API_VERSION, $resource),
-                    $this->getAuthentication()
-                );
-            }
+            $responseData = $client->sendRequest(
+                $method,
+                $dataSend ? $dataSend->getArrayCopy() : array(),
+                sprintf('%s/%s%s.json', self::API_ENDPOINT, self::API_VERSION, $resource),
+                $this->getAuthentication()
+            );
+
+            $this->handleResponse($responseData, $client->getResponseStatusCode(), clone $responseHydrator);
         }
 
-        // post connection
-        $responseData = $client->postMultiRequest();
+        // client close
+        $client->onClientClose();
 
-        print_r($responseData);
-        die();
-
-        foreach($responseData as $response)
-        {
-            $success = $this->hydrateResponseData($response);
-            if( !$success )
-            {
-                // get response
-            }
-        }
+        return true;
     }
 
     /**
      * Handle Response
      *
      * @param $response
-     * @return bool
+     * @param $responseStatusCode
+     * @param ResponseInterface $responseHydrator
+     * @return ResponseInterface
      * @throws Api\Exception\InvalidResponseException
      */
-    private function handleResponse($response)
+    private function handleResponse($response, $responseStatusCode, ResponseInterface $responseHydrator)
     {
         // decode response
         $json = json_decode($response, true);
         if( $json )
         {
-            $response = $this->hydrateResponseData($json);
-            $this->setResponse($response);
+            /** @var ResponseInterface $response */
+            $response = $responseHydrator->exchangeArray($json);
+            $response->setStatusCode($responseStatusCode);
 
-            if( !$response->getStatus() )
+            // is error
+            if( $responseStatusCode !== 200 )
             {
-                return false;
+                $this->addResponseError($response);
+            } else {
+                $this->addResponse($response);
             }
 
             return true;
@@ -192,63 +173,76 @@ class Api
     }
 
     /**
-     * Hydrate API Response Data
-     *
-     * @param $responseData
-     * @return Response
+     * @param $responseErrors
+     * @return $this
      */
-    private function hydrateResponseData($responseData)
+    private function setResponseErrors($responseErrors)
     {
-        if( isset($responseData['acknowledged']) )
-        {
-            $response = new ReceiptResponse();
-            $response->setStatus($responseData['status']);
-            $response->setRequest($responseData['request']);
-            $response->setAcknowledged($responseData['acknowledged']);
-            $response->setAcknowledgedAt($responseData['acknowledged_at']);
-            $response->setAcknowledgedBy($responseData['acknowledged_by']);
-            $response->setLastDeliveredAt($responseData['last_delivered_at']);
-            $response->setExpired($responseData['expired']);
-            $response->setExpiresAt($responseData['expires_at']);
-            $response->setCalledBack($responseData['called_back']);
-            $response->setCalledBackAt($responseData['called_back_at']);
+        $this->responseErrors = $responseErrors;
+        return $this;
+    }
 
-        } else {
+    /**
+     * @param $error
+     */
+    private function addResponseError($error)
+    {
+        $this->isError = true;
+        $this->responseErrors[] = $error;
+    }
 
-            $response = new Response();
-            $response->setStatus($responseData['status']);
-            $response->setRequest($responseData['request']);
+    /**
+     * @return array
+     */
+    public function getErrors()
+    {
+        return $this->responseErrors;
+    }
 
-            // receipt
-            if( isset($responseData['receipt']) )
-            {
-                $response->setReceipt($responseData['receipt']);
-            }
-
-            // errors
-            if( isset($responseData['errors']) )
-            {
-                $response->setErrors($responseData['errors']);
-            }
-        }
-
-        return $response;
+    /**
+     * @return boolean
+     */
+    public function isError()
+    {
+        return $this->isError;
     }
 
     /**
      * @param ResponseInterface $response
+     * @return $this
      */
-    public function setResponse(ResponseInterface $response)
+    private function addResponse(ResponseInterface $response)
     {
-        $this->response = $response;
+        $this->responseSet[] = $response;
+        return $this;
     }
 
     /**
-     * @return \Pushover\Api\Response\Response
+     * @return array
+     */
+    public function getResponseSet()
+    {
+        return $this->responseSet;
+    }
+
+    /**
+     * Get Single Response
+     *
+     * @return ResponseInterface
      */
     public function getResponse()
     {
-        return $this->response;
+        return current($this->getResponseSet());
+    }
+
+    /**
+     * @param $responseSet
+     * @return $this
+     */
+    public function setResponseSet($responseSet)
+    {
+        $this->responseSet = $responseSet;
+        return $this;
     }
 
     /**

@@ -10,8 +10,8 @@ class CurlClient implements ClientInterface
     /** @var  StatusCode */
     private $lastResponseStatusCode;
 
-    private $curlMultiHandle;
-    private $curlHandles = array();
+    /** @var  Resource CurlHandle */
+    private $curlHandle;
 
     public function __construct()
     {
@@ -21,67 +21,24 @@ class CurlClient implements ClientInterface
         }
     }
 
-    public function preMultiRequest()
+    /**
+     * On Client Start Connection
+     *
+     * @return $this
+     */
+    public function onClientConnect()
     {
-        if( $this->curlMultiHandle )
-        {
-            // connection set all fine
-            return true;
-        }
+        $curlHandle = curl_init();
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYHOST, 0);
 
-        $this->curlMultiHandle = curl_multi_init();
-        return $this;
-    }
-
-    public function onMultiRequest($method, $data = array(), $endpoint, AuthenticationInterface $authentication)
-    {
-        // prepare endpoint data
-        $data = array_filter($data);
-
-        if( $authentication instanceof Token )
-            $data['token'] = $authentication->getCredential();
-        else
-            throw new Exception('authentication requires tokenauth');
-
-        $endpoint = sprintf('%s?%s', $endpoint, http_build_query ($data));
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+        curl_setopt($curlHandle, CURLOPT_HEADER, 0);
+        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER,1);
         //debug
-        curl_setopt($ch, CURLOPT_PROXY, '127.0.0.1:8888');
+        curl_setopt($curlHandle, CURLOPT_PROXY, '127.0.0.1:8888');
+        $this->curlHandle = $curlHandle;
 
-
-        curl_multi_add_handle($this->curlMultiHandle, $ch);
-        array_push($this->curlHandles, $ch);
-
-        return true;
-    }
-
-    public function postMultiRequest()
-    {
-        $response = array();
-        do {
-            curl_multi_exec($this->curlMultiHandle, $running);
-            curl_multi_select($this->curlMultiHandle);
-            usleep(100);
-        } while ($running > 0);
-
-        // get results
-        foreach ($this->curlHandles as $ch) {
-            $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $response[] = curl_multi_getcontent($ch);
-            curl_multi_remove_handle($this->curlMultiHandle, $ch);
-        }
-        $this->curlHandles = array();
-
-        // close multi
-        curl_multi_close($this->curlMultiHandle);
-        return $response;
+        return $this;
     }
 
     /**
@@ -102,18 +59,13 @@ class CurlClient implements ClientInterface
         if( $authentication instanceof Token )
             $data['token'] = $authentication->getCredential();
         else
-            throw new Exception('authentication requires tokenauth');
+            throw new Exception('authentication requires auth token');
 
         $endpoint = sprintf('%s?%s', $endpoint, http_build_query ($data));
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        $ch = $this->curlHandle;
         curl_setopt($ch, CURLOPT_URL, $endpoint);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-        curl_setopt($ch, CURLOPT_PROXY, '127.0.0.1:8888');
 
         $sResult = curl_exec($ch);
         if (curl_errno($ch))
@@ -122,9 +74,18 @@ class CurlClient implements ClientInterface
         }
 
         $this->setResponseStatusCode(curl_getinfo($ch, CURLINFO_HTTP_CODE));
-        curl_close($ch);
-
         return $sResult;
+    }
+
+    /**
+     * On Client Close Connection
+     *
+     * @return $this
+     */
+    public function onClientClose()
+    {
+        curl_close($this->curlHandle);
+        return $this;
     }
 
     /**

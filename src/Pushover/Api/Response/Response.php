@@ -10,6 +10,27 @@ class Response implements ResponseInterface
     protected $statusCode;
 
     /**
+     * Exchange API response to Squad Object
+     *
+     * @param $array
+     * @return $this
+     */
+    public function exchangeArray($array)
+    {
+        $self = $this;
+        $vars = get_class_vars(get_class($this));
+        array_map(function($v, $k) use ($vars, $self) {
+            $k = str_replace('_', '', $k);
+            if( method_exists($self, 'set' . ucwords(strtolower($k)) ) )
+            {
+                call_user_func(array($self, 'set' . ucwords(strtolower($k))), $v);
+            }
+        }, $array, array_keys($array));
+
+        return $this;
+    }
+
+    /**
      * @param mixed $statusCode
      */
     public function setStatusCode($statusCode)
