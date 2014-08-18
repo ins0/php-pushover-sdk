@@ -3,6 +3,14 @@ php-pushover-sdk
 
 php implementation to send messages over pushover.net api
 
+todo
+================
+
+- [ ] make nice wiki/documentation
+- [ ] add all unit tests
+- [ ] add device specific link helper (Pushover/Api/Message/Link)
+- [x] add api friendly bulk requests
+- [x] get some feedback
 
 examples
 ================
