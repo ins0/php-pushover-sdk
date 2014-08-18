@@ -13,7 +13,7 @@ examples
 
     // test emergency push message
     $message = new \Pushover\Api\Message\EmergencyMessage('FoBar Test Message', 'USER_TOKEN','DEVICE_NAME');
-    $message->setTimestamp(time()-3600); // 1 hour before
+    $message->setTimestamp(strtotime('-1 hour')); // 1 hour before
     $message->setSound($message::SOUND_CASHREGISTER);
 
     $result = $pushover->push($message);
