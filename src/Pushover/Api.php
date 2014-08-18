@@ -94,7 +94,7 @@ class Api
      */
     public function push(AbstractMessage $message)
     {
-        $this->callApi($this::REQUEST_POST, '/messages', $message->getArrayCopy(), new Response());
+        $this->callApi($this::REQUEST_POST, '/messages', array($message), new Response());
         return $this->isError() ? false : $this->getResponse();
     }
 
