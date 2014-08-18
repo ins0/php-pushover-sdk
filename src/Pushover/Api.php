@@ -71,22 +71,9 @@ class Api
         if( !is_array($messages) || count($messages) <= 0)
             return false;
 
-        $errors = array();
-        foreach($messages as $message )
-        {
-            if( $message instanceof AbstractMessage )
-            {
-                $succeeded = $this->push($message);
+        // send data
+        $this->callMultiApi($this::REQUEST_POST, '/messages', $messages);
 
-                if( !$succeeded )
-                {
-                    $errors[] = array(
-                        'message' => $message,
-                        'response' => $this->getResponse()
-                    );
-                }
-            }
-        }
 
         // flush response
         $this->setResponse(null);
@@ -129,6 +116,63 @@ class Api
             $this->getAuthentication()
         );
 
+        return $this->handleResponse($response);
+    }
+
+    /**
+     * Send Bulk Request
+     *
+     * @param string $method
+     * @param $resource
+     * @param array $data
+     * @return mixed
+     */
+    private function callMultiApi($method = self::REQUEST_POST, $resource, $data = array())
+    {
+        // get client
+        $client = $this->getClient();
+
+        $client->preMultiRequest();
+
+        // send request
+        foreach($data as $message)
+        {
+            if( $message instanceof AbstractMessage )
+            {
+                $client->onMultiRequest(
+                    $method,
+                    $message->getArrayCopy(),
+                    sprintf('%s/%s%s.json', self::API_ENDPOINT, self::API_VERSION, $resource),
+                    $this->getAuthentication()
+                );
+            }
+        }
+
+        // post connection
+        $responseData = $client->postMultiRequest();
+
+        print_r($responseData);
+        die();
+
+        foreach($responseData as $response)
+        {
+            $success = $this->hydrateResponseData($response);
+            if( !$success )
+            {
+                // get response
+            }
+        }
+    }
+
+    /**
+     * Handle Response
+     *
+     * @param $response
+     * @return bool
+     * @throws Api\Exception\InvalidResponseException
+     */
+    private function handleResponse($response)
+    {
         // decode response
         $json = json_decode($response, true);
         if( $json )
@@ -155,7 +199,7 @@ class Api
      */
     private function hydrateResponseData($responseData)
     {
-        if( $responseData['acknowledged'] )
+        if( isset($responseData['acknowledged']) )
         {
             $response = new ReceiptResponse();
             $response->setStatus($responseData['status']);

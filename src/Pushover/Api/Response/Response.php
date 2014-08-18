@@ -7,6 +7,23 @@ class Response implements ResponseInterface
     protected $errors;
     protected $request;
     protected $receipt;
+    protected $statusCode;
+
+    /**
+     * @param mixed $statusCode
+     */
+    public function setStatusCode($statusCode)
+    {
+        $this->statusCode = $statusCode;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getStatusCode()
+    {
+        return $this->statusCode;
+    }
 
     /**
      * @param mixed $receipt
