@@ -35,7 +35,7 @@ class CurlClient implements ClientInterface
         curl_setopt($curlHandle, CURLOPT_HEADER, 0);
         curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER,1);
         //debug
-        curl_setopt($curlHandle, CURLOPT_PROXY, '127.0.0.1:8888');
+        //curl_setopt($curlHandle, CURLOPT_PROXY, '127.0.0.1:8888');
         $this->curlHandle = $curlHandle;
 
         return $this;
